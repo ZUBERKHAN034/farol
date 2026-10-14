@@ -17,6 +17,33 @@ final class Settings: ObservableObject {
     /// Selecting text copies it to the clipboard right away.
     @Published var copyOnSelect = false { didSet { write("copy-on-select", copyOnSelect ? "clipboard" : "") } }
 
+    enum BackgroundStyle: String, CaseIterable, Hashable {
+        case off, blur, glassRegular, glassClear
+
+        var configValue: String {
+            switch self {
+            case .off: "false"
+            case .blur: "10"
+            case .glassRegular: "macos-glass-regular"
+            case .glassClear: "macos-glass-clear"
+            }
+        }
+    }
+    @Published var backgroundStyle: BackgroundStyle = .off {
+        didSet {
+            write("background-blur", backgroundStyle == .blur ? String(backgroundBlurRadius) : backgroundStyle.configValue)
+            if backgroundStyle != .off {
+                write("background-opacity", String(format: "%.2f", backgroundOpacity))
+            }
+        }
+    }
+    @Published var backgroundBlurRadius = 10 {
+        didSet { if backgroundStyle == .blur { write("background-blur", String(backgroundBlurRadius)) } }
+    }
+    @Published var backgroundOpacity = 0.82 {
+        didSet { write("background-opacity", String(format: "%.2f", backgroundOpacity)) }
+    }
+
     /// What the terminal could not read in the file after the last reload, for the settings page to show.
     @Published var configErrors: [String] = []
 
@@ -53,6 +80,17 @@ final class Settings: ObservableObject {
         cursorBlink = values["cursor-style-blink"] != "false"
         optionAsAlt = values["macos-option-as-alt"] ?? "false"
         copyOnSelect = values["copy-on-select"] == "clipboard"
+        backgroundStyle = values["background-blur"].flatMap { raw in
+            switch raw {
+            case "false", "0": .off
+            case "macos-glass-regular": .glassRegular
+            case "macos-glass-clear": .glassClear
+            case let value where Int(value) != nil: .blur
+            default: nil
+            }
+        } ?? .off
+        backgroundBlurRadius = values["background-blur"].flatMap(Int.init).map { min(max($0, 1), 100) } ?? 10
+        backgroundOpacity = values["background-opacity"].flatMap(Double.init).map { min(max($0, 0.3), 1) } ?? 0.82
     }
 
     /// Editors save by replacing the file, which only the folder reports.

@@ -92,6 +92,21 @@ public final class TerminalRuntime {
         onConfigChange?()
     }
 
+    /// Applies Ghostty's configured window blur to a window after its config loads or changes.
+    public func applyWindowBackgroundBlur(to window: NSWindow) {
+        ghostty_set_window_background_blur(app, Unmanaged.passUnretained(window).toOpaque())
+    }
+
+    /// Clears a previously applied Ghostty blur before Liquid Glass takes over.
+    public func clearWindowBackgroundBlur(_ window: NSWindow) {
+        typealias ConnectionFn = @convention(c) () -> UnsafeMutableRawPointer
+        typealias SetBlurFn = @convention(c) (UnsafeMutableRawPointer, Int, Int32) -> Int32
+        guard let connectionSymbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGSDefaultConnectionForThread"),
+              let setBlurSymbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGSSetWindowBackgroundBlurRadius") else { return }
+        let connection = unsafeBitCast(connectionSymbol, to: ConnectionFn.self)()
+        _ = unsafeBitCast(setBlurSymbol, to: SetBlurFn.self)(connection, window.windowNumber, 0)
+    }
+
     /// libghostty gives no file or line, so the same mistake on two lines reads the same and is listed once.
     private static func errors(in config: ghostty_config_t) -> [String] {
         var seen = Set<String>()

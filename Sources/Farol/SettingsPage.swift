@@ -151,6 +151,35 @@ struct SettingsPage: View {
         }
         .padding(.bottom, 32)
 
+        GroupTitle(title: "Background", palette: p)
+        Row(title: "Background style", detail: "Liquid Glass requires macOS 26 or later.", palette: p) {
+            Picker("", selection: $settings.backgroundStyle) {
+                Text("Off").tag(Settings.BackgroundStyle.off)
+                Text("Blur (numeric)").tag(Settings.BackgroundStyle.blur)
+                if #available(macOS 26.0, *) {
+                    Text("Liquid Glass (Regular)").tag(Settings.BackgroundStyle.glassRegular)
+                    Text("Liquid Glass (Clear)").tag(Settings.BackgroundStyle.glassClear)
+                }
+            }
+            .labelsHidden()
+            .fixedSize()
+        }
+        if settings.backgroundStyle == .blur {
+            Row(title: "Blur radius", palette: p) {
+                Stepper("\(settings.backgroundBlurRadius)", value: $settings.backgroundBlurRadius, in: 1...100)
+            }
+        }
+        Row(title: "Background opacity", detail: "Lower opacity lets the desktop show through.", palette: p) {
+            HStack(spacing: 10) {
+                Slider(value: $settings.backgroundOpacity, in: 0.3...1)
+                    .frame(width: 140)
+                Text("\(Int(settings.backgroundOpacity * 100))%")
+                    .monospacedDigit()
+                    .frame(width: 38, alignment: .trailing)
+            }
+        }
+        .padding(.bottom, 32)
+
         Heading(title: "Theme",
                 detail: "Applies to every session as soon as you pick it. To add your own, drop a Ghostty theme file in the themes folder.",
                 palette: p)

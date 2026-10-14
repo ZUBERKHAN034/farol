@@ -17,6 +17,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     private lazy var notifier = AgentNotifier(settings: agents)
     private let content = NSView()
+    private var windowRoot: NSView!
+    private var glassBacking: NSView?
     private let terminalContainer = NSView()
     private var sidebarWidth: NSLayoutConstraint!
     private var filesWidth: NSLayoutConstraint!
@@ -98,6 +100,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             titleBarDoubleClick: { [weak self] in self?.titleBarDoubleClicked() })
 
         let root = NSView()
+        windowRoot = root
         let topBar = hosting(TopBar(state: state, store: store, updates: updates, review: review, merge: merge, commands: commands))
         let sidebar = hosting(SidebarView(store: store, state: state, commands: commands))
         sidebar.clipsToBounds = true
@@ -262,6 +265,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             guard let self, operation == nil, state.showingMerge else { return }
             DispatchQueue.main.async { self.toggleMerge() }
         }
+    }
+
+    override func showWindow(_ sender: Any?) {
+        super.showWindow(sender)
+        // Ghostty can miss the first blur application before AppKit has shown the window.
+        DispatchQueue.main.async { [weak self] in self?.applyStyle() }
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -562,13 +571,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     private func applyTheme(style: UIStyle? = nil) {
         let bg = runtime.backgroundColor
-        state.palette = Palette(runtime, style: style ?? state.style)
+        let glass = settings.backgroundStyle == .glassRegular || settings.backgroundStyle == .glassClear
+        state.palette = Palette(runtime, style: style ?? state.style, translucent: glass, opacity: settings.backgroundOpacity)
         menuBar.apply(state.palette)
         notch.apply(state.palette)
         HoverTip.shared.colors = (bg, runtime.foregroundColor)
         applyStyle()
         window?.appearance = NSAppearance(named: bg.isDark ? .darkAqua : .aqua)
-        content.layer?.backgroundColor = bg.cgColor
+        let translucent = settings.backgroundStyle != .off
+        content.layer?.backgroundColor = (translucent ? bg.withAlphaComponent(settings.backgroundOpacity) : bg).cgColor
         store.sessions.forEach {
             $0.panes.theme = theme
             $0.panes.syntax = state.palette.code
@@ -578,7 +589,20 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     /// Boxed, every panel is a card: round corners, a border, and the backdrop showing in the gaps around it.
     private func applyStyle() {
         let palette = state.palette
-        window?.backgroundColor = NSColor(palette.backdrop)
+        let glass = settings.backgroundStyle == .glassRegular || settings.backgroundStyle == .glassClear
+        let blurred = settings.backgroundStyle == .blur
+        if glass || blurred {
+            window?.isOpaque = false
+            window?.backgroundColor = .clear
+        } else {
+            window?.isOpaque = true
+            window?.backgroundColor = NSColor(palette.backdrop)
+        }
+        syncGlassBacking(enabled: glass)
+        if let window {
+            if glass { runtime.clearWindowBackgroundBlur(window) }
+            else { runtime.applyWindowBackgroundBlur(to: window) }
+        }
         // The side panels already clip, which a closed one relies on to hide what is in it, so their corners come for free.
         // The terminal stays clear of its card's corners by its own margin, which spares it a mask.
         for panel in panels {
@@ -592,6 +616,35 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mergeView.layer?.cornerRadius = palette.style.radius
         mergeView.layer?.masksToBounds = palette.boxed
         layoutGaps()
+    }
+
+    private func syncGlassBacking(enabled: Bool) {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) {
+            if enabled {
+                let backing: NSGlassEffectView
+                if let existing = glassBacking as? NSGlassEffectView {
+                    backing = existing
+                } else {
+                    backing = PassthroughGlassEffectView()
+                    backing.translatesAutoresizingMaskIntoConstraints = false
+                    windowRoot.addSubview(backing, positioned: .below, relativeTo: windowRoot.subviews.first)
+                    NSLayoutConstraint.activate([
+                        backing.topAnchor.constraint(equalTo: windowRoot.topAnchor),
+                        backing.leadingAnchor.constraint(equalTo: windowRoot.leadingAnchor),
+                        backing.trailingAnchor.constraint(equalTo: windowRoot.trailingAnchor),
+                        backing.bottomAnchor.constraint(equalTo: windowRoot.bottomAnchor),
+                    ])
+                    glassBacking = backing
+                }
+                backing.style = settings.backgroundStyle == .glassClear ? .clear : .regular
+                backing.tintColor = runtime.backgroundColor.withAlphaComponent(settings.backgroundOpacity)
+            } else {
+                glassBacking?.removeFromSuperview()
+                glassBacking = nil
+            }
+        }
+        #endif
     }
 
     /// A closed panel takes no gap, or two gaps would sit side by side where it was.
@@ -716,3 +769,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mergeCount = merge.$conflicts.dropFirst().sink { [weak session] _ in session?.refreshGit() }
     }
 }
+
+#if compiler(>=6.2)
+@available(macOS 26.0, *)
+private final class PassthroughGlassEffectView: NSGlassEffectView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+#endif

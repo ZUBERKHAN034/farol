@@ -67,21 +67,24 @@ struct Palette: Equatable {
     var boxed: Bool { style != .classic }
     var vivid: Bool { style == .vivid }
 
-    init(_ runtime: TerminalRuntime, style: UIStyle = .classic) {
+    init(_ runtime: TerminalRuntime, style: UIStyle = .classic, translucent: Bool = false, opacity: Double = 0.82) {
         self.init(background: runtime.backgroundColor, foreground: runtime.foregroundColor, ansi: runtime.ansiColors,
-                  style: style)
+                  style: style, translucent: translucent, opacity: opacity)
     }
 
-    init(background bg: NSColor, foreground fg: NSColor, ansi: [NSColor], style: UIStyle = .classic) {
+    init(background bg: NSColor, foreground fg: NSColor, ansi: [NSColor], style: UIStyle = .classic,
+         translucent: Bool = false, opacity: Double = 0.82) {
         isDark = bg.isDark
         self.style = style
-        background = Color(nsColor: bg)
+        background = Color(nsColor: translucent ? bg.withAlphaComponent(opacity) : bg)
         // With color, the panels lean toward the theme's blue. Leaning toward the text, as the other styles do, leaves them gray.
         let blue = ansi.count > 4 ? ansi[4] : fg
         let vivid = style == .vivid
         let tint = vivid ? blue : fg
-        surface = Color(nsColor: bg.mixed(with: tint, vivid ? 0.06 : 0.035))
-        raised = Color(nsColor: bg.mixed(with: tint, vivid ? 0.14 : 0.085))
+        let surfaceColor = bg.mixed(with: tint, vivid ? 0.06 : 0.035)
+        let raisedColor = bg.mixed(with: tint, vivid ? 0.14 : 0.085)
+        surface = Color(nsColor: translucent ? surfaceColor.withAlphaComponent(opacity) : surfaceColor)
+        raised = Color(nsColor: translucent ? raisedColor.withAlphaComponent(opacity) : raisedColor)
         line = Color(nsColor: bg.mixed(with: tint, vivid ? 0.2 : 0.11))
         selection = vivid ? Color(nsColor: bg.mixed(with: blue, 0.3)) : raised
         // Darker than the terminal in a dark theme, so the cards stand out from it. A light theme has no room above white.
