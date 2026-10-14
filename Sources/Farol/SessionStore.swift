@@ -205,7 +205,6 @@ final class SessionStore: ObservableObject {
             "FAROL_PANE": id.uuidString,
             "FAROL_SOCKET": statusServer.path,
             "FAROL_CLI": cliPath,
-            "FAROL_INPUT_POSITION_FILE": Settings.inputPositionFile.path,
         ], input: command.isEmpty ? nil : command + "\n")
     }
 
