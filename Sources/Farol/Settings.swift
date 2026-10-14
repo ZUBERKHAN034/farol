@@ -3,21 +3,6 @@ import AppKit
 /// The settings page edits a few keys in ~/.config/farol/config (Ghostty config syntax).
 /// Any other line in that file is kept as is, so power users can add anything Ghostty supports.
 final class Settings: ObservableObject {
-    enum InputPosition: String, CaseIterable {
-        case bottom = "bottom"
-        case top = "top"
-        case reverse = "reverse"
-
-        var title: String {
-            switch self {
-            case .bottom: "Pin to the bottom (Agent mode)"
-            case .top: "Start at the top (Classic mode)"
-            case .reverse: "Pin to the top (Reverse mode)"
-            }
-        }
-    }
-
-    static let inputPositionKey = "terminal.inputPosition"
     static let fileURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".config/farol/config")
 
@@ -31,9 +16,6 @@ final class Settings: ObservableObject {
     @Published var optionAsAlt = "false" { didSet { write("macos-option-as-alt", optionAsAlt == "false" ? "" : optionAsAlt) } }
     /// Selecting text copies it to the clipboard right away.
     @Published var copyOnSelect = false { didSet { write("copy-on-select", copyOnSelect ? "clipboard" : "") } }
-    @Published var inputPosition: InputPosition {
-        didSet { UserDefaults.standard.set(inputPosition.rawValue, forKey: Self.inputPositionKey) }
-    }
 
     /// What the terminal could not read in the file after the last reload, for the settings page to show.
     @Published var configErrors: [String] = []
@@ -49,9 +31,6 @@ final class Settings: ObservableObject {
     private var fileWatcher: DispatchSourceFileSystemObject?
 
     init() {
-        UserDefaults.standard.register(defaults: [Self.inputPositionKey: InputPosition.bottom.rawValue])
-        inputPosition = UserDefaults.standard.string(forKey: Self.inputPositionKey)
-            .flatMap(InputPosition.init(rawValue:)) ?? .bottom
         reload()
         watch()
     }

@@ -212,17 +212,6 @@ struct SettingsPage: View {
             toggle($settings.cursorBlink)
         }
 
-        GroupTitle(title: "Input", palette: p)
-        Row(title: "Input position", palette: p) {
-            Picker("", selection: $settings.inputPosition) {
-                ForEach(Settings.InputPosition.allCases, id: \.self) { position in
-                    Text(position.title).tag(position)
-                }
-            }
-            .labelsHidden()
-            .fixedSize()
-        }
-
         GroupTitle(title: "Keyboard and mouse", palette: p)
         Row(title: "Option key as Alt",
             detail: "For shortcuts in programs like vim or emacs. Leave it off to type accents with Option.",
