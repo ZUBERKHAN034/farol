@@ -31,6 +31,8 @@ cp "$root/.build/$config/Farol" "$app/Contents/MacOS/Farol"
 mkdir -p "$app/Contents/Resources/bin"
 cp "$root/.build/$config/FarolCLI" "$app/Contents/Resources/bin/farol"
 cp -R "$root/vendor/ghostty-resources/." "$app/Contents/Resources/"
+# Farol adds prompt-position behavior to Ghostty's shell integration without changing user shell files.
+"$root/scripts/install-shell-integration.sh" "$app/Contents/Resources/ghostty"
 # Next to Ghostty's themes, so Ghostty finds Farol's by name too.
 cp "$root"/assets/themes/* "$app/Contents/Resources/ghostty/themes/"
 cp "$root/assets/Farol.icns" "$app/Contents/Resources/"

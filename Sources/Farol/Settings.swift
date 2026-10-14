@@ -18,6 +18,8 @@ final class Settings: ObservableObject {
     }
 
     static let inputPositionKey = "terminal.inputPosition"
+    static let inputPositionFile = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Farol/input-position")
     static let fileURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".config/farol/config")
 
@@ -32,7 +34,7 @@ final class Settings: ObservableObject {
     /// Selecting text copies it to the clipboard right away.
     @Published var copyOnSelect = false { didSet { write("copy-on-select", copyOnSelect ? "clipboard" : "") } }
     @Published var inputPosition: InputPosition {
-        didSet { UserDefaults.standard.set(inputPosition.rawValue, forKey: Self.inputPositionKey) }
+        didSet { saveInputPosition() }
     }
 
     /// What the terminal could not read in the file after the last reload, for the settings page to show.
@@ -52,8 +54,16 @@ final class Settings: ObservableObject {
         UserDefaults.standard.register(defaults: [Self.inputPositionKey: InputPosition.bottom.rawValue])
         inputPosition = UserDefaults.standard.string(forKey: Self.inputPositionKey)
             .flatMap(InputPosition.init(rawValue:)) ?? .bottom
+        saveInputPosition()
         reload()
         watch()
+    }
+
+    private func saveInputPosition() {
+        UserDefaults.standard.set(inputPosition.rawValue, forKey: Self.inputPositionKey)
+        let folder = Self.inputPositionFile.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? (inputPosition.rawValue + "\n").write(to: Self.inputPositionFile, atomically: true, encoding: .utf8)
     }
 
     private static func read() -> [String] {
